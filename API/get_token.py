@@ -10,10 +10,15 @@ import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 TENANT_ID = "c1f7b851-****-****-****-************"
-CLIENT_ID = "4dd73579-****-****-****-************"
-CLIENT_SECRET = "tgR8Q****************************************"
+# Usar el App Registration de la WEBAPP (cliente OAuth2), no el de la API.
+# La webapp es quien solicita tokens en nombre del usuario.
+CLIENT_ID = "c7f7e1c3-****-****-****-************"
+CLIENT_SECRET = "vLW8Q************************************"
 REDIRECT_URI = "http://localhost:8080/callback"
-SCOPE = f"{CLIENT_ID}/.default openid profile"
+# El scope debe referenciar el App Registration de la API con el prefijo api://
+# Esto produce un token con audience = "api://4dd73579-..." que la API acepta.
+API_CLIENT_ID = "4dd73579-****-****-****-************"
+SCOPE = f"api://{API_CLIENT_ID}/access_as_user openid profile"
 
 auth_code = None
 
