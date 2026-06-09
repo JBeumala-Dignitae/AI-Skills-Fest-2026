@@ -1,0 +1,94 @@
+##Crea una API con FastAPI y uvicorn
+
+- El proyecto debe usar el entorno virtual que hay en la carpeta venv
+- El requirements.txt debe incluir todos los paquetes necesarios
+- Incluye un script arrancar.ps1 que active el venv e inicie uvicorn automáticamente
+
+##BBDD
+
+- La APi sirve para interactuar con una tabla llamada ws_registro_horario.
+- Está creada en un servidor en Azure con postgreSQL.
+- Esta es su estructura:
+
+-- REGISTROS TIEMPO
+CREATE SEQUENCE ws_registros_tiempo_sec_id
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+CREATE TYPE estado_reghor AS ENUM ('entrada pendiente', 'salida pendiente', 'completo');
+CREATE TYPE origen_reghor AS ENUM ('api', 'webapp', 'agenteIA');
+
+CREATE TABLE ws_registros_tiempo (
+    id BIGINT NOT NULL PRIMARY KEY DEFAULT nextval('ws_registros_tiempo_sec_id'),
+    upn_empleado VARCHAR(255) NOT NULL,
+    entrada TIMESTAMPTZ NOT NULL,
+    salida TIMESTAMPTZ NULL,
+    segundos_trabajados INT,
+    estado estado_reghor NOT NULL DEFAULT 'salida pendiente',
+    origen origen_reghor NOT NULL DEFAULT 'webapp',
+    comentario_justificacion TEXT,
+	upn_alta VARCHAR(255) NOT NULL,
+	upn_ultima_modificacion VARCHAR(255) NOT NULL,
+    fecha_alta TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_ultima_modificacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+## Debe contener estos 5 endpoints:
+
+### POST /fichar-entrada
+- Espera en el body el campo origen Valor por defecto 'webapp'.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el upn del token.
+- Registra la entrada con timestamp actual en un nuevo registro y pone el estado a 'salida pensiente'.
+
+### POST /fichar-salida
+- Espera en el body el campo origen Valor por defecto 'webapp'.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el upn token.
+- Busca un registro de ese usuario, en estado 'salida pendiente'.
+- Si lo encuentra verifica el tiempo transcurrido desde la entrada.
+- Si el tiempo transcurrido es menor o igual a 43200 segundo, actualiza la salida con la hora del momento.
+- Si no lo encuentra devuelve un resultado de error, informando que no hay ningún registro pendiente de salida.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el email y nombre del token.
+- Registra la salida con timestamp actual en un nuevo registro. Calcula y guarda los segundos trabajados y el estado como 'completo'
+
+### POST /corregir-entrada
+- Espera en el body el momento_entrada en formato 'aaaa-mm-dd hh:mm:ss' y el comentario_justificacion.
+- La hora debe ser anterior al momento actual.
+- El comentario debe estar informado.
+- El momento entrada no puede estar comprendido entre entrada y salida de ningún registro existente para ese usuario.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el upn del token.
+- Registra la entrada con el momento de entrada y el comentario_justificacion recibidos. Pone el estado a 'salida pensiente'.
+
+### POST /corregir-salida
+- Espera en el body la hora salida y el comentario_justificacion.
+- La hora debe ser anterior al momento actual.
+- El comentario debe estar informado.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el upn del token.
+- Busca el registro de ese usuario, en estado 'salida pendiente', con entrada máxima, y anterior al momento de salida recibido.
+- Si lo encuentra verifica el tiempo transcurrido desde la entrada.
+- Si el tiempo transcurrido es menor o igual a 43200 segundo, actualiza la salida con la hora del momento.
+- Si no lo encuentra devuelve un resultado de error, informando que no hay ningún registro pendiente de salida.
+- El usuario se identifica desde el JWT de Entra ID que viene en el header Authorization. 
+- Extrae el upn del token.
+- Registra la salida con el momento de salida y el comentario_justificacion recibidos. Calcula y guarda los segundos trabajados  y el estado como 'completo'
+
+###GET /consultar-horas
+- Espera en el body la fecha_desde en formato aaaa-mm-dd (Por defecto hoy)
+- Espera en el body la fecha_hasta en formato aaaa-mm-dd (Por defecto hoy)
+- Devuelve todos los registros del usuario autenticado para que tengan la entrada y o la salida entre las 0h de la fecha desde y las 23:59:59 de la fecha_hasta.
+- Devuelve la información de detalle de cada registro, y la suma del campo segundos trabajados en formato 'hh:mm:ss'
+
+Requisitos:
+- Validar el JWT de Entra ID en cada endpoint
+- Tenant ID: c1f7b851-d9c0-4c1c-b60c-02587602ea81
+- Client ID de la API: 4dd73579-0a62-438f-ba07-0ebd498c0ec8
+- Incluir CORS habilitado para localhost y 
+- Incluir requirements.txt
+- DATABASE_URL=postgresql+asyncpg://ws_usuario:WsDignitae123@cursodignitae.postgres.database.azure.com/ws_reghorario?sslmode=require
